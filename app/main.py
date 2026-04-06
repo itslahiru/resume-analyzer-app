@@ -8,14 +8,16 @@ from fastapi.templating import Jinja2Templates
 from app.analyzer import (
     clean_text,
     extract_keywords,
-    compare_resume_to_job_weighted,
-    calculate_weighted_skill_match_percentage,
+    compare_resume_to_job_section_aware,
+    calculate_section_aware_skill_match_percentage,
     calculate_semantic_similarity,
     calculate_combined_match_score,
     analyze_formatting_issues,
     get_match_label,
     generate_recommendations,
     generate_feedback_summary,
+    generate_top_strengths,
+    generate_top_risks,
     extract_resume_text,
 )
 from app.report_generator import generate_pdf_report
@@ -103,15 +105,17 @@ async def upload_resume(
 
         keywords = extract_keywords(cleaned_resume_text, top_n=15)
 
-        comparison = compare_resume_to_job_weighted(
+        comparison = compare_resume_to_job_section_aware(
+            raw_resume_text=extracted_text,
             resume_text=cleaned_resume_text,
             raw_job_text=job_description,
             skill_map=SKILL_SYNONYMS,
         )
 
-        skill_match_percentage = calculate_weighted_skill_match_percentage(
+        skill_match_percentage = calculate_section_aware_skill_match_percentage(
             matched_skills=comparison["matched_skills"],
             job_skill_weights=comparison["job_skill_weights"],
+            skill_evidence_map=comparison["skill_evidence_map"],
         )
 
         semantic_similarity_percentage = calculate_semantic_similarity(
@@ -124,7 +128,10 @@ async def upload_resume(
             semantic_similarity_percentage=semantic_similarity_percentage,
         )
 
-        formatting_issues = analyze_formatting_issues(extracted_text)
+        formatting_issues = analyze_formatting_issues(
+        extracted_text,
+        detected_resume_skills=comparison["resume_skills"],
+        )
         match_label = get_match_label(combined_match_score)
         match_css_class = get_match_css_class(match_label)
 
@@ -143,6 +150,18 @@ async def upload_resume(
             required_missing_skills=comparison["required_missing_skills"],
         )
 
+        top_strengths = generate_top_strengths(
+            matched_skills=comparison["matched_skills"],
+            matched_skill_evidence=comparison["matched_skill_evidence"],
+            semantic_similarity_percentage=semantic_similarity_percentage,
+        )
+
+        top_risks = generate_top_risks(
+            required_missing_skills=comparison["required_missing_skills"],
+            preferred_missing_skills=comparison["preferred_missing_skills"],
+            formatting_issues=formatting_issues,
+        )
+
         results = {
             "filename": uploaded_filename,
             "resume_keywords": keywords,
@@ -154,6 +173,7 @@ async def upload_resume(
             "missing_skills": comparison["missing_skills"],
             "required_missing_skills": comparison["required_missing_skills"],
             "preferred_missing_skills": comparison["preferred_missing_skills"],
+            "matched_skill_evidence": comparison["matched_skill_evidence"],
             "formatting_issues": formatting_issues,
             "skill_match_percentage": skill_match_percentage,
             "semantic_similarity_percentage": semantic_similarity_percentage,
@@ -162,6 +182,8 @@ async def upload_resume(
             "match_css_class": match_css_class,
             "recommendations": recommendations,
             "feedback_summary": feedback_summary,
+            "top_strengths": top_strengths,
+            "top_risks": top_risks,
             "extraction_method": extraction_method,
         }
 

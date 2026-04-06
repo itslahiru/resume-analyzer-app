@@ -77,6 +77,68 @@
             </form>
         </div>
 
+        <div class="score-breakdown-grid">
+    <div class="card">
+        <h2>Score Breakdown</h2>
+
+        <div class="score-row">
+            <div class="score-row-top">
+                <span>Overall Match</span>
+                <span>{{ results.job_match_percentage }}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-overall" style="width: {{ results.job_match_percentage }}%;"></div>
+            </div>
+        </div>
+
+        <div class="score-row">
+            <div class="score-row-top">
+                <span>Section-Aware Skill Match</span>
+                <span>{{ results.skill_match_percentage }}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-skill" style="width: {{ results.skill_match_percentage }}%;"></div>
+            </div>
+        </div>
+
+        <div class="score-row">
+            <div class="score-row-top">
+                <span>Semantic Similarity</span>
+                <span>{{ results.semantic_similarity_percentage }}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-semantic" style="width: {{ results.semantic_similarity_percentage }}%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Top Strengths</h2>
+        {% if results.top_strengths %}
+            <ul>
+                {% for item in results.top_strengths %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No major strengths detected.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Top Risks</h2>
+        {% if results.top_risks %}
+            <ul>
+                {% for item in results.top_risks %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No major risks detected.</p>
+        {% endif %}
+    </div>
+</div>
+
         <div class="results-grid">
             <div class="card">
                 <h2>Recommendations</h2>
@@ -103,6 +165,25 @@
                     <p>No matched skills found.</p>
                 {% endif %}
             </div>
+
+            <div class="card">
+    <h2>Matched Skill Evidence</h2>
+    {% if results.matched_skill_evidence %}
+        <div class="evidence-list">
+            {% for item in results.matched_skill_evidence %}
+                <div class="evidence-item">
+                    <p class="evidence-skill">{{ item.skill }}</p>
+                    <p class="evidence-meta">
+                        Section: {{ item.section }} | Confidence: {{ item.confidence }}
+                    </p>
+                    <p class="evidence-snippet">{{ item.snippet }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No evidence snippets available.</p>
+    {% endif %}
+</div>
 
             <div class="card">
                 <h2>Missing Must-Have Skills</h2>

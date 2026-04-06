@@ -38,6 +38,64 @@ SECTION_RESET_MARKERS = (
     "benefits",
 )
 
+RESUME_SECTION_HEADINGS = {
+    "summary": [
+        "summary",
+        "professional summary",
+        "profile",
+        "about me",
+    ],
+    "skills": [
+        "skills",
+        "technical skills",
+        "core skills",
+        "key skills",
+    ],
+    "experience": [
+        "experience",
+        "work experience",
+        "professional experience",
+        "employment history",
+    ],
+    "education": [
+        "education",
+        "academic background",
+        "qualifications",
+    ],
+    "projects": [
+        "projects",
+        "personal projects",
+        "academic projects",
+    ],
+    "certifications": [
+        "certifications",
+        "licenses",
+    ],
+}
+
+SECTION_CONFIDENCE_WEIGHTS = {
+    "skills": 1.00,
+    "experience": 0.95,
+    "projects": 0.90,
+    "summary": 0.75,
+    "certifications": 0.75,
+    "education": 0.60,
+    "other": 0.50,
+}
+
+ACTION_VERBS = {
+    "built", "developed", "designed", "implemented", "created", "led",
+    "improved", "optimized", "managed", "delivered", "analyzed",
+    "automated", "collaborated", "integrated", "deployed", "tested",
+    "maintained", "supported", "launched", "engineered"
+}
+
+TECH_ROLE_HINTS = {
+    "python", "java", "javascript", "typescript", "sql", "fastapi",
+    "django", "flask", "react", "node.js", "aws", "docker", "kubernetes",
+    "machine learning", "nlp", "pytorch", "tensorflow", "data analysis"
+}
+
 
 def configure_tesseract() -> None:
     default_windows_path = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
@@ -62,6 +120,13 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
+def normalize_heading(text: str) -> str:
+    text = text.lower().strip()
+    text = re.sub(r"[^a-z0-9\s]", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
 def extract_keywords(text: str, top_n: int = 15) -> list[str]:
     if not text:
         return []
@@ -78,9 +143,6 @@ def extract_keywords(text: str, top_n: int = 15) -> list[str]:
 
 
 def _alias_pattern(alias: str) -> str:
-    """
-    Safer than \\b for skills like c++, c#, node.js.
-    """
     return rf"(?<![a-z0-9]){re.escape(alias.lower())}(?![a-z0-9])"
 
 
@@ -93,6 +155,75 @@ def _text_contains_alias(text: str, aliases: list[str]) -> bool:
             return True
 
     return False
+
+
+def detect_resume_heading(line: str) -> str | None:
+    normalized = normalize_heading(line)
+
+    for section_name, headings in RESUME_SECTION_HEADINGS.items():
+        if normalized in [normalize_heading(h) for h in headings]:
+            return section_name
+
+    return None
+
+
+def split_resume_into_sections(raw_resume_text: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {
+        "summary": [],
+        "skills": [],
+        "experience": [],
+        "education": [],
+        "projects": [],
+        "certifications": [],
+        "other": [],
+    }
+
+    if not raw_resume_text:
+        return sections
+
+    current_section = "other"
+    lines = [line.strip() for line in raw_resume_text.splitlines() if line.strip()]
+
+    for line in lines:
+        detected = detect_resume_heading(line)
+        if detected:
+            current_section = detected
+            continue
+
+        sections[current_section].append(line)
+
+    return sections
+
+
+def extract_resume_skill_evidence(
+    raw_resume_text: str,
+    skill_map: dict[str, list[str]],
+) -> dict[str, dict]:
+    """
+    For each detected skill, keep the best evidence snippet and section.
+    """
+    sections = split_resume_into_sections(raw_resume_text)
+    evidence_map: dict[str, dict] = {}
+
+    for section_name, lines in sections.items():
+        section_weight = SECTION_CONFIDENCE_WEIGHTS.get(section_name, 0.50)
+
+        for line in lines:
+            for canonical_skill, aliases in skill_map.items():
+                if _text_contains_alias(line, aliases):
+                    existing = evidence_map.get(canonical_skill)
+
+                    candidate = {
+                        "skill": canonical_skill,
+                        "section": section_name,
+                        "snippet": line,
+                        "confidence": section_weight,
+                    }
+
+                    if existing is None or candidate["confidence"] > existing["confidence"]:
+                        evidence_map[canonical_skill] = candidate
+
+    return evidence_map
 
 
 def find_skills_in_text(text: str, skill_map: dict[str, list[str]]) -> list[str]:
@@ -109,13 +240,6 @@ def find_skills_in_text(text: str, skill_map: dict[str, list[str]]) -> list[str]
 
 
 def extract_weighted_job_skills(raw_job_text: str, skill_map: dict[str, list[str]]) -> dict:
-    """
-    Detect job skills and assign weights based on which section they appear in.
-
-    required  -> weight 1.0
-    preferred -> weight 0.5
-    neutral   -> weight 0.75
-    """
     skill_weights: dict[str, float] = {}
     required_skills = set()
     preferred_skills = set()
@@ -169,7 +293,6 @@ def extract_weighted_job_skills(raw_job_text: str, skill_map: dict[str, list[str
             else:
                 neutral_skills.add(skill)
 
-    # Fallback: if nothing was found line-by-line, scan the whole text
     if not skill_weights:
         fallback_skills = find_skills_in_text(raw_job_text, skill_map)
         for skill in fallback_skills:
@@ -185,12 +308,16 @@ def extract_weighted_job_skills(raw_job_text: str, skill_map: dict[str, list[str
     }
 
 
-def compare_resume_to_job_weighted(
+def compare_resume_to_job_section_aware(
+    raw_resume_text: str,
     resume_text: str,
     raw_job_text: str,
     skill_map: dict[str, list[str]],
 ) -> dict:
-    resume_skills = find_skills_in_text(resume_text, skill_map)
+    resume_sections = split_resume_into_sections(raw_resume_text)
+    evidence_map = extract_resume_skill_evidence(raw_resume_text, skill_map)
+
+    resume_skills = sorted(evidence_map.keys())
     weighted_job_data = extract_weighted_job_skills(raw_job_text, skill_map)
 
     job_skills = weighted_job_data["job_skills"]
@@ -205,7 +332,10 @@ def compare_resume_to_job_weighted(
     required_missing_skills = sorted(set(required_skills) - set(resume_skills))
     preferred_missing_skills = sorted(set(preferred_skills) - set(resume_skills))
 
+    matched_skill_evidence = [evidence_map[skill] for skill in matched_skills if skill in evidence_map]
+
     return {
+        "resume_sections": resume_sections,
         "resume_skills": resume_skills,
         "job_skills": job_skills,
         "required_skills": required_skills,
@@ -216,18 +346,26 @@ def compare_resume_to_job_weighted(
         "required_missing_skills": required_missing_skills,
         "preferred_missing_skills": preferred_missing_skills,
         "job_skill_weights": job_skill_weights,
+        "skill_evidence_map": evidence_map,
+        "matched_skill_evidence": matched_skill_evidence,
     }
 
 
-def calculate_weighted_skill_match_percentage(
+def calculate_section_aware_skill_match_percentage(
     matched_skills: list[str],
     job_skill_weights: dict[str, float],
+    skill_evidence_map: dict[str, dict],
 ) -> float:
     if not job_skill_weights:
         return 0.0
 
     total_weight = sum(job_skill_weights.values())
-    matched_weight = sum(job_skill_weights.get(skill, 0.0) for skill in matched_skills)
+    matched_weight = 0.0
+
+    for skill in matched_skills:
+        job_weight = job_skill_weights.get(skill, 0.0)
+        evidence_confidence = skill_evidence_map.get(skill, {}).get("confidence", 0.5)
+        matched_weight += job_weight * evidence_confidence
 
     score = (matched_weight / total_weight) * 100
     return round(score, 2)
@@ -249,8 +387,8 @@ def calculate_semantic_similarity(text_a: str, text_b: str) -> float:
 def calculate_combined_match_score(
     skill_match_percentage: float,
     semantic_similarity_percentage: float,
-    skill_weight: float = 0.7,
-    semantic_weight: float = 0.3,
+    skill_weight: float = 0.75,
+    semantic_weight: float = 0.25,
 ) -> float:
     combined = (
         skill_match_percentage * skill_weight
@@ -259,8 +397,9 @@ def calculate_combined_match_score(
     return round(combined, 2)
 
 
-def analyze_formatting_issues(raw_text: str) -> list[str]:
+def analyze_formatting_issues(raw_text: str, detected_resume_skills: list[str] | None = None) -> list[str]:
     issues = []
+    detected_resume_skills = detected_resume_skills or []
 
     if not raw_text or len(raw_text.strip()) < 100:
         issues.append("Resume content appears too short.")
@@ -286,6 +425,53 @@ def analyze_formatting_issues(raw_text: str) -> list[str]:
 
     if len(raw_text.split()) > 2000:
         issues.append("Resume appears unusually long or poorly extracted.")
+
+    # Split into lines for more detailed heuristics
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+
+    # Dense line detection
+    long_lines = [line for line in lines if len(line.split()) > 28]
+    if len(long_lines) >= 4:
+        issues.append("Resume contains several dense text lines; bullet-based formatting may improve readability.")
+
+    # Bullet point detection
+    bullet_like_lines = [
+        line for line in lines
+        if line.startswith(("•", "-", "*")) or re.match(r"^\d+\.", line)
+    ]
+    if len(bullet_like_lines) < 3:
+        issues.append("Resume may lack clear bullet points for achievements and responsibilities.")
+
+    # Action verb detection in likely achievement lines
+    achievement_like_lines = [
+        line for line in lines
+        if len(line.split()) >= 6
+    ]
+    weak_action_lines = 0
+    checked_lines = 0
+
+    for line in achievement_like_lines:
+        first_word = re.sub(r"^[•\-\*\d\.\)\(]+\s*", "", line).split(" ")[0].lower()
+        if first_word:
+            checked_lines += 1
+            if first_word not in ACTION_VERBS:
+                weak_action_lines += 1
+
+    if checked_lines >= 4 and weak_action_lines / checked_lines > 0.6:
+        issues.append("Many experience/project lines do not begin with strong action verbs.")
+
+    # Quantified achievement detection
+    quantified_markers = re.findall(r"\b\d+%|\b\d+\+|\$\d+|\b\d+\b", raw_text)
+    if len(quantified_markers) < 2:
+        issues.append("Resume includes few measurable achievements; adding metrics could strengthen impact.")
+
+    # Technical profile link suggestion for technical resumes
+    tech_overlap = set(detected_resume_skills) & TECH_ROLE_HINTS
+    has_linkedin = "linkedin" in lowered
+    has_github = "github" in lowered
+
+    if tech_overlap and not (has_linkedin or has_github):
+        issues.append("Technical resume may benefit from adding a LinkedIn or GitHub profile link.")
 
     return issues
 
@@ -405,6 +591,70 @@ def extract_text_with_ocr(file_bytes: bytes, dpi: int = 250) -> str:
     doc.close()
     return "\n".join(ocr_pages).strip()
 
+def generate_top_strengths(
+    matched_skills: list[str],
+    matched_skill_evidence: list[dict],
+    semantic_similarity_percentage: float,
+) -> list[str]:
+    strengths = []
+
+    if matched_skills:
+        strengths.append(
+            f"Strong overlap with key skills such as: {', '.join(matched_skills[:4])}."
+        )
+
+    if matched_skill_evidence:
+        high_confidence = [
+            item["skill"]
+            for item in matched_skill_evidence
+            if item.get("confidence", 0) >= 0.9
+        ]
+        if high_confidence:
+            strengths.append(
+                f"Several skills are supported by strong resume evidence in sections like Skills, Experience, or Projects: {', '.join(high_confidence[:4])}."
+            )
+
+    if semantic_similarity_percentage >= 70:
+        strengths.append(
+            "The resume is semantically well aligned with the job description overall."
+        )
+    elif semantic_similarity_percentage >= 55:
+        strengths.append(
+            "The resume shows moderate overall semantic relevance to the target role."
+        )
+
+    if not strengths:
+        strengths.append("Some relevant alignment exists, but the strongest strengths are limited.")
+
+    return strengths
+
+
+def generate_top_risks(
+    required_missing_skills: list[str],
+    preferred_missing_skills: list[str],
+    formatting_issues: list[str],
+) -> list[str]:
+    risks = []
+
+    if required_missing_skills:
+        risks.append(
+            f"Important required skills are missing: {', '.join(required_missing_skills[:4])}."
+        )
+
+    if preferred_missing_skills:
+        risks.append(
+            f"Some preferred skills are not shown: {', '.join(preferred_missing_skills[:4])}."
+        )
+
+    if formatting_issues:
+        risks.append(
+            f"There are {len(formatting_issues)} formatting or structure concerns that may reduce resume quality."
+        )
+
+    if not risks:
+        risks.append("No major high-priority risks were detected.")
+
+    return risks
 
 def extract_resume_text(file_bytes: bytes) -> tuple[str, str]:
     normal_text = extract_text_from_pdf_bytes(file_bytes)
