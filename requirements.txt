@@ -9,3 +9,5 @@ PyMuPDF
 Pillow
 sentence-transformers
 reportlab
+pwdlib[argon2]
+itsdangerous

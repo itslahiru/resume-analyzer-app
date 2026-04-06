@@ -15,10 +15,23 @@
     </div>
 
     <div class="container">
+        <div class="page-header">
+    <div>
         <h1>Resume Analyzer</h1>
         <p class="subtitle">
             Upload your resume in PDF format and paste the job description.
         </p>
+        <p class="auth-meta">Logged in as <strong>{{ current_user.username }}</strong></p>
+    </div>
+
+    <div class="top-actions">
+        <a class="back-link" href="/history">View History →</a>
+
+        <form action="/logout" method="post" class="inline-form">
+            <button type="submit" class="secondary-danger-button">Logout</button>
+        </form>
+    </div>
+</div>
 
         <div class="card">
             <form id="analyze-form" action="/upload" method="post" enctype="multipart/form-data">

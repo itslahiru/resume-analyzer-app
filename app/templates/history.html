@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis History</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+    <div class="container history-container">
+        <div class="page-header history-page-header">
+    <div>
+        <h1>Analysis History</h1>
+        <p class="subtitle">Review previously saved resume analyses.</p>
+        <p class="auth-meta">Logged in as <strong>{{ current_user.username }}</strong></p>
+    </div>
+
+    <div class="top-actions">
+        <a class="back-link" href="/">← Back to Analyzer</a>
+
+        <form action="/logout" method="post" class="inline-form">
+            <button type="submit" class="secondary-danger-button">Logout</button>
+        </form>
+    </div>
+</div>
+
+        {% if error %}
+        <div class="card error-card">
+            <h2>Error</h2>
+            <p>{{ error }}</p>
+        </div>
+        {% endif %}
+
+        <div class="card history-filter-card">
+            <div class="history-section-head">
+                <h2>Search & Filter</h2>
+                <p>Narrow down saved analyses by filename, label, or score.</p>
+            </div>
+
+            <form action="/history" method="get" class="filter-form">
+                <div class="filter-grid improved-filter-grid">
+                    <div class="form-group">
+                        <label for="search_text">Filename</label>
+                        <input
+                            type="text"
+                            name="search_text"
+                            placeholder="Search by filename..."
+                            value="{{ filters.search_text if filters else '' }}"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="match_label">Match Label</label>
+                        <select name="match_label">
+                            <option value="">All</option>
+                            <option value="Strong Match" {% if filters and filters.match_label == "Strong Match" %}selected{% endif %}>Strong Match</option>
+                            <option value="Moderate Match" {% if filters and filters.match_label == "Moderate Match" %}selected{% endif %}>Moderate Match</option>
+                            <option value="Weak Match" {% if filters and filters.match_label == "Weak Match" %}selected{% endif %}>Weak Match</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="min_score">Minimum Score</label>
+                        <input
+                            type="number"
+                            name="min_score"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            placeholder="e.g. 70"
+                            value="{{ filters.min_score if filters else '' }}"
+                        >
+                    </div>
+                </div>
+
+                <div class="filter-actions">
+                    <button type="submit">Apply Filters</button>
+                    <a class="button-link secondary-button" href="/history">Clear Filters</a>
+                </div>
+            </form>
+        </div>
+
+        {% if analyses %}
+            <form action="/history/compare" method="post">
+                <div class="card compare-toolbar-card">
+                    <div>
+                        <h2>Compare Analyses</h2>
+                        <p>Select exactly 2 saved analyses to compare side by side.</p>
+                    </div>
+                    <button type="submit">Compare Selected</button>
+                </div>
+
+                <div class="history-grid improved-history-grid">
+                    {% for item in analyses %}
+                    <div class="card history-card improved-history-card">
+                        <label class="compare-checkbox">
+                            <input type="checkbox" name="selected_ids" value="{{ item.id }}">
+                            <span>Select for comparison</span>
+                        </label>
+
+                        <div class="history-card-top">
+                            <h2>{{ item.filename }}</h2>
+                            <span class="history-badge
+                                {% if item.match_label == 'Strong Match' %}badge-strong{% elif item.match_label == 'Moderate Match' %}badge-moderate{% else %}badge-weak{% endif %}">
+                                {{ item.match_label }}
+                            </span>
+                        </div>
+
+                        <div class="history-meta">
+                            <p><strong>Date:</strong> {{ item.analyzed_at }}</p>
+                            <p><strong>Overall Match:</strong> {{ item.overall_match }}%</p>
+                            <p><strong>Extraction:</strong> {{ item.extraction_method }}</p>
+                        </div>
+
+                        <p class="summary">{{ item.feedback_summary }}</p>
+
+                        <div class="history-actions">
+                            <a class="detail-link" href="/history/{{ item.id }}">View Details</a>
+                            <a class="detail-link" href="/history/{{ item.id }}/download-report">Download Report</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </form>
+        {% else %}
+            <div class="card empty-history-card">
+                <h2>No matching history found</h2>
+                <p>No saved analyses matched the current search or filter criteria.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

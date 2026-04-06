@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compare Analyses</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+    <div>
+        <h1>Compare Analyses</h1>
+        <p class="subtitle">Side-by-side comparison of two saved resume analyses.</p>
+        <p class="auth-meta">Logged in as <strong>{{ current_user.username }}</strong></p>
+    </div>
+
+    <div class="top-actions">
+        <a class="back-link" href="/history">← Back to History</a>
+
+        <form action="/logout" method="post" class="inline-form">
+            <button type="submit" class="secondary-danger-button">Logout</button>
+        </form>
+    </div>
+</div>
+
+        {% if error %}
+        <div class="card error-card">
+            <h2>Error</h2>
+            <p>{{ error }}</p>
+        </div>
+        {% endif %}
+
+        {% if comparison_insights %}
+        <div class="card highlight-card">
+            <h2>Comparison Summary</h2>
+            <p class="match-label">{{ comparison_insights.winner_name }}</p>
+            <p class="summary">{{ comparison_insights.summary }}</p>
+            <p class="summary"><strong>Improvement advice:</strong> {{ comparison_insights.improvement_advice }}</p>
+        </div>
+        {% endif %}
+
+        {% if left_analysis and right_analysis %}
+        <div class="compare-grid">
+            <div class="card {% if comparison_insights and comparison_insights.winner_side == 'left' %}compare-winner{% endif %}">
+                <h2>{{ left_analysis.filename }}</h2>
+                <p><strong>Date:</strong> {{ left_analysis.analyzed_at }}</p>
+                <p><strong>Overall Match:</strong> {{ left_analysis.overall_match }}%</p>
+                <p><strong>Match Label:</strong> {{ left_analysis.match_label }}</p>
+                <p><strong>Skill Match:</strong> {{ left_analysis.skill_match }}%</p>
+                <p><strong>Semantic Similarity:</strong> {{ left_analysis.semantic_similarity }}%</p>
+                <p class="summary">{{ left_analysis.feedback_summary }}</p>
+
+                <h3>Advantages</h3>
+                {% if comparison_insights and comparison_insights.left_advantages %}
+                    <ul>
+                        {% for item in comparison_insights.left_advantages %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No clear advantages identified.</p>
+                {% endif %}
+
+                <h3>Top Strengths</h3>
+                {% if left_analysis.top_strengths %}
+                    <ul>
+                        {% for item in left_analysis.top_strengths %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No strengths available.</p>
+                {% endif %}
+
+                <h3>Top Risks</h3>
+                {% if left_analysis.top_risks %}
+                    <ul>
+                        {% for item in left_analysis.top_risks %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No risks available.</p>
+                {% endif %}
+
+                <h3>Missing Skills</h3>
+                {% if left_analysis.missing_skills %}
+                    <div class="tag-list">
+                        {% for skill in left_analysis.missing_skills %}
+                            <span class="tag tag-red">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No missing skills.</p>
+                {% endif %}
+            </div>
+
+            <div class="card {% if comparison_insights and comparison_insights.winner_side == 'right' %}compare-winner{% endif %}">
+                <h2>{{ right_analysis.filename }}</h2>
+                <p><strong>Date:</strong> {{ right_analysis.analyzed_at }}</p>
+                <p><strong>Overall Match:</strong> {{ right_analysis.overall_match }}%</p>
+                <p><strong>Match Label:</strong> {{ right_analysis.match_label }}</p>
+                <p><strong>Skill Match:</strong> {{ right_analysis.skill_match }}%</p>
+                <p><strong>Semantic Similarity:</strong> {{ right_analysis.semantic_similarity }}%</p>
+                <p class="summary">{{ right_analysis.feedback_summary }}</p>
+
+                <h3>Advantages</h3>
+                {% if comparison_insights and comparison_insights.right_advantages %}
+                    <ul>
+                        {% for item in comparison_insights.right_advantages %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No clear advantages identified.</p>
+                {% endif %}
+
+                <h3>Top Strengths</h3>
+                {% if right_analysis.top_strengths %}
+                    <ul>
+                        {% for item in right_analysis.top_strengths %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No strengths available.</p>
+                {% endif %}
+
+                <h3>Top Risks</h3>
+                {% if right_analysis.top_risks %}
+                    <ul>
+                        {% for item in right_analysis.top_risks %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No risks available.</p>
+                {% endif %}
+
+                <h3>Missing Skills</h3>
+                {% if right_analysis.missing_skills %}
+                    <div class="tag-list">
+                        {% for skill in right_analysis.missing_skills %}
+                            <span class="tag tag-red">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No missing skills.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

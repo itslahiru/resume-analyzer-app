@@ -656,6 +656,119 @@ def generate_top_risks(
 
     return risks
 
+def generate_comparison_insights(left_analysis: dict, right_analysis: dict) -> dict:
+    """
+    Compare two saved analyses and generate high-level insights.
+    """
+    left_score = float(left_analysis.get("overall_match") or 0)
+    right_score = float(right_analysis.get("overall_match") or 0)
+
+    left_required_missing = len(left_analysis.get("required_missing_skills") or [])
+    right_required_missing = len(right_analysis.get("required_missing_skills") or [])
+
+    left_formatting_issues = len(left_analysis.get("formatting_issues") or [])
+    right_formatting_issues = len(right_analysis.get("formatting_issues") or [])
+
+    left_matched = len(left_analysis.get("matched_skills") or [])
+    right_matched = len(right_analysis.get("matched_skills") or [])
+
+    left_advantages = []
+    right_advantages = []
+
+    if left_score > right_score:
+        left_advantages.append("Higher overall match score.")
+    elif right_score > left_score:
+        right_advantages.append("Higher overall match score.")
+
+    if left_required_missing < right_required_missing:
+        left_advantages.append("Fewer missing must-have skills.")
+    elif right_required_missing < left_required_missing:
+        right_advantages.append("Fewer missing must-have skills.")
+
+    if left_formatting_issues < right_formatting_issues:
+        left_advantages.append("Fewer formatting or structure issues.")
+    elif right_formatting_issues < left_formatting_issues:
+        right_advantages.append("Fewer formatting or structure issues.")
+
+    if left_matched > right_matched:
+        left_advantages.append("More matched skills overall.")
+    elif right_matched > left_matched:
+        right_advantages.append("More matched skills overall.")
+
+    # Decide winner
+    left_points = len(left_advantages)
+    right_points = len(right_advantages)
+
+    if left_points > right_points:
+        winner_side = "left"
+        winner_name = left_analysis.get("filename", "Left Resume")
+        loser_name = right_analysis.get("filename", "Right Resume")
+    elif right_points > left_points:
+        winner_side = "right"
+        winner_name = right_analysis.get("filename", "Right Resume")
+        loser_name = left_analysis.get("filename", "Left Resume")
+    else:
+        # Tie-break using overall match
+        if left_score > right_score:
+            winner_side = "left"
+            winner_name = left_analysis.get("filename", "Left Resume")
+            loser_name = right_analysis.get("filename", "Right Resume")
+        elif right_score > left_score:
+            winner_side = "right"
+            winner_name = right_analysis.get("filename", "Right Resume")
+            loser_name = left_analysis.get("filename", "Left Resume")
+        else:
+            winner_side = "tie"
+            winner_name = "Neither version clearly wins"
+            loser_name = ""
+
+    if winner_side == "tie":
+        summary = (
+            "Both resume versions are closely matched overall. "
+            "Neither version has a clear advantage across the main comparison signals."
+        )
+        improvement_advice = (
+            "Focus on reducing missing must-have skills, strengthening evidence for matched skills, "
+            "and improving formatting clarity to create a clearer winner."
+        )
+    else:
+        summary = (
+            f"{winner_name} appears stronger overall than {loser_name}. "
+            f"It performs better across the most important comparison signals."
+        )
+
+        weaker_analysis = right_analysis if winner_side == "left" else left_analysis
+        weaker_required_missing = weaker_analysis.get("required_missing_skills") or []
+        weaker_formatting = weaker_analysis.get("formatting_issues") or []
+
+        advice_parts = []
+
+        if weaker_required_missing:
+            advice_parts.append(
+                f"Address missing must-have skills first: {', '.join(weaker_required_missing[:4])}."
+            )
+
+        if weaker_formatting:
+            advice_parts.append(
+                "Improve formatting and structure issues to increase readability and professionalism."
+            )
+
+        if not advice_parts:
+            advice_parts.append(
+                "Strengthen project and experience evidence for the most relevant matched skills."
+            )
+
+        improvement_advice = " ".join(advice_parts)
+
+    return {
+        "winner_side": winner_side,
+        "winner_name": winner_name,
+        "summary": summary,
+        "left_advantages": left_advantages,
+        "right_advantages": right_advantages,
+        "improvement_advice": improvement_advice,
+    }
+
 def extract_resume_text(file_bytes: bytes) -> tuple[str, str]:
     normal_text = extract_text_from_pdf_bytes(file_bytes)
 
