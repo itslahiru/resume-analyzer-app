@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loader-card">
+            <div class="spinner"></div>
+            <p>Analyzing resume...</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Resume Analyzer</h1>
+        <p class="subtitle">
+            Upload your resume in PDF format and paste the job description.
+        </p>
+
+        <div class="card">
+            <form id="analyze-form" action="/upload" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="file">Resume PDF</label>
+                    <input id="file-input" type="file" name="file" accept=".pdf" required>
+                    <p id="file-name" class="file-name">
+                        {% if uploaded_filename %}
+                            Selected file: {{ uploaded_filename }}
+                        {% else %}
+                            No file selected
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label for="job_description">Job Description</label>
+                    <textarea
+                        name="job_description"
+                        rows="10"
+                        placeholder="Paste the job description here..."
+                        required
+                    >{{ job_description }}</textarea>
+                </div>
+
+                <button id="analyze-button" type="submit">Analyze Resume</button>
+            </form>
+        </div>
+
+        {% if error %}
+        <div class="card error-card">
+            <h2>Error</h2>
+            <p>{{ error }}</p>
+        </div>
+        {% endif %}
+
+        {% if results %}
+        <div class="card highlight-card {{ results.match_css_class }}">
+            <h2>Overall Result</h2>
+            <p class="score">{{ results.job_match_percentage }}%</p>
+            <p class="match-label">{{ results.match_label }}</p>
+            <p><strong>File:</strong> {{ results.filename }}</p>
+            <p><strong>Extraction method:</strong> {{ results.extraction_method }}</p>
+            <p><strong>Weighted skill match:</strong> {{ results.skill_match_percentage }}%</p>
+            <p><strong>Semantic similarity:</strong> {{ results.semantic_similarity_percentage }}%</p>
+            <p class="summary">{{ results.feedback_summary }}</p>
+        </div>
+
+        <div class="card">
+            <h2>Export Report</h2>
+            <p>Download this analysis as a PDF report.</p>
+
+            <form action="/download-report" method="post">
+                <textarea name="report_payload" hidden>{{ results | tojson }}</textarea>
+                <button type="submit">Download PDF Report</button>
+            </form>
+        </div>
+
+        <div class="results-grid">
+            <div class="card">
+                <h2>Recommendations</h2>
+                {% if results.recommendations %}
+                    <ul>
+                        {% for item in results.recommendations %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No recommendations available.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Matched Skills</h2>
+                {% if results.matched_skills %}
+                    <div class="tag-list">
+                        {% for skill in results.matched_skills %}
+                            <span class="tag tag-green">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No matched skills found.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Missing Must-Have Skills</h2>
+                {% if results.required_missing_skills %}
+                    <div class="tag-list">
+                        {% for skill in results.required_missing_skills %}
+                            <span class="tag tag-red">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No missing must-have skills detected.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Missing Preferred Skills</h2>
+                {% if results.preferred_missing_skills %}
+                    <div class="tag-list">
+                        {% for skill in results.preferred_missing_skills %}
+                            <span class="tag tag-blue">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No missing preferred skills detected.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Formatting Issues</h2>
+                {% if results.formatting_issues %}
+                    <ul>
+                        {% for issue in results.formatting_issues %}
+                            <li>{{ issue }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No obvious formatting issues detected.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Resume Keywords</h2>
+                {% if results.resume_keywords %}
+                    <div class="tag-list">
+                        {% for keyword in results.resume_keywords %}
+                            <span class="tag tag-blue">{{ keyword }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No keywords extracted.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Detected Resume Skills</h2>
+                {% if results.resume_skills %}
+                    <div class="tag-list">
+                        {% for skill in results.resume_skills %}
+                            <span class="tag tag-gray">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No resume skills detected.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Required Job Skills</h2>
+                {% if results.required_skills %}
+                    <div class="tag-list">
+                        {% for skill in results.required_skills %}
+                            <span class="tag tag-gray">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No required skills detected.</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>Preferred Job Skills</h2>
+                {% if results.preferred_skills %}
+                    <div class="tag-list">
+                        {% for skill in results.preferred_skills %}
+                            <span class="tag tag-blue">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No preferred skills detected.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>

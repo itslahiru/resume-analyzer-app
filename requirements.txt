@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+pypdf
+yake
+pytesseract
+PyMuPDF
+Pillow
+sentence-transformers
+reportlab
