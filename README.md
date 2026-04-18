@@ -125,7 +125,7 @@ The app analyzes resumes against job descriptions and provides:
 
 ---
 
-Demo Video: https://youtu.be/mzO-KwtWfDA
+## Demo Video: https://youtu.be/mzO-KwtWfDA
 
 ## Project Structure
 
